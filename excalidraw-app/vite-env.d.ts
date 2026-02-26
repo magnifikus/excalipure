@@ -13,7 +13,6 @@ interface ImportMetaEnv {
 
   // set this only if using the collaboration workflow we use on excalidraw.com
   VITE_APP_PORTAL_URL: string;
-  VITE_APP_AI_BACKEND: string;
 
   VITE_APP_FIREBASE_CONFIG: string;
 
@@ -31,10 +30,6 @@ interface ImportMetaEnv {
 
   // Enable PWA in dev server
   VITE_APP_ENABLE_PWA: string;
-
-  VITE_APP_PLUS_LP: string;
-
-  VITE_APP_PLUS_APP: string;
 
   VITE_APP_GIT_SHA: string;
 

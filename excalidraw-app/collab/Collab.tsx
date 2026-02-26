@@ -518,8 +518,14 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.fallbackInitializationHandler = fallbackInitializationHandler;
 
     try {
+      // Support relative WebSocket URLs (proxied via nginx)
+      const wsUrl = import.meta.env.VITE_APP_WS_SERVER_URL;
+      const fullWsUrl = wsUrl.startsWith("http")
+        ? wsUrl
+        : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}${wsUrl}`;
+
       this.portal.socket = this.portal.open(
-        socketIOClient(import.meta.env.VITE_APP_WS_SERVER_URL, {
+        socketIOClient(fullWsUrl, {
           transports: ["websocket", "polling"],
         }),
         roomId,

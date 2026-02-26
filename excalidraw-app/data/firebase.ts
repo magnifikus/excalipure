@@ -43,7 +43,8 @@ import type { Socket } from "socket.io-client";
 
 let FIREBASE_CONFIG: Record<string, any>;
 try {
-  FIREBASE_CONFIG = JSON.parse(import.meta.env.VITE_APP_FIREBASE_CONFIG);
+  const configStr = import.meta.env.VITE_APP_FIREBASE_CONFIG;
+  FIREBASE_CONFIG = configStr ? JSON.parse(configStr) : {};
 } catch (error: any) {
   console.warn(
     `Error JSON parsing firebase config. Supplied value: ${
@@ -53,11 +54,18 @@ try {
   FIREBASE_CONFIG = {};
 }
 
+const isFirebaseEnabled = () => {
+  return FIREBASE_CONFIG && Object.keys(FIREBASE_CONFIG).length > 0;
+};
+
 let firebaseApp: ReturnType<typeof initializeApp> | null = null;
 let firestore: ReturnType<typeof getFirestore> | null = null;
 let firebaseStorage: ReturnType<typeof getStorage> | null = null;
 
 const _initializeFirebase = () => {
+  if (!isFirebaseEnabled()) {
+    throw new Error("Firebase is not configured");
+  }
   if (!firebaseApp) {
     firebaseApp = initializeApp(FIREBASE_CONFIG);
   }
@@ -81,6 +89,9 @@ const _getStorage = () => {
 // -----------------------------------------------------------------------------
 
 export const loadFirebaseStorage = async () => {
+  if (!isFirebaseEnabled()) {
+    return null;
+  }
   return _getStorage();
 };
 
@@ -149,7 +160,42 @@ export const saveFilesToFirebase = async ({
   prefix: string;
   files: { id: FileId; buffer: Uint8Array }[];
 }) => {
+  // Use local backend if Firebase is not configured
+  const filesBackendUrl = import.meta.env.VITE_APP_FILES_BACKEND_URL;
+  if (!isFirebaseEnabled() && filesBackendUrl) {
+    const erroredFiles: FileId[] = [];
+    const savedFiles: FileId[] = [];
+
+    await Promise.all(
+      files.map(async ({ id, buffer }) => {
+        try {
+          // Extract roomId from prefix (e.g., "files/rooms/roomId" -> "rooms/roomId")
+          const roomIdMatch = prefix.match(/rooms\/([^/]+)/);
+          const roomId = roomIdMatch ? roomIdMatch[1] : "default";
+          const url = `${filesBackendUrl}${roomId}/${id}`;
+          await fetch(url, {
+            method: "POST",
+            // @ts-expect-error Uint8Array is valid BodyInit
+            body: buffer,
+          });
+          savedFiles.push(id);
+        } catch (error: any) {
+          erroredFiles.push(id);
+        }
+      }),
+    );
+
+    return { savedFiles, erroredFiles };
+  }
+
+  if (!isFirebaseEnabled()) {
+    return { savedFiles: [], erroredFiles: files.map((f) => f.id) };
+  }
+
   const storage = await loadFirebaseStorage();
+  if (!storage) {
+    return { savedFiles: [], erroredFiles: files.map((f) => f.id) };
+  }
 
   const erroredFiles: FileId[] = [];
   const savedFiles: FileId[] = [];
@@ -189,6 +235,10 @@ export const saveToFirebase = async (
   elements: readonly SyncableExcalidrawElement[],
   appState: AppState,
 ) => {
+  if (!isFirebaseEnabled()) {
+    return null;
+  }
+
   const { roomId, roomKey, socket } = portal;
   if (
     // bail if no room exists as there's nothing we can do at this point
@@ -251,6 +301,10 @@ export const loadFromFirebase = async (
   roomKey: string,
   socket: Socket | null,
 ): Promise<readonly SyncableExcalidrawElement[] | null> => {
+  if (!isFirebaseEnabled()) {
+    return null;
+  }
+
   const firestore = _getFirestore();
   const docRef = doc(firestore, "scenes", roomId);
   const docSnap = await getDoc(docRef);
@@ -276,6 +330,55 @@ export const loadFilesFromFirebase = async (
   decryptionKey: string,
   filesIds: readonly FileId[],
 ) => {
+  // Use local backend if Firebase is not configured
+  const filesBackendUrl = import.meta.env.VITE_APP_FILES_BACKEND_URL;
+  if (!isFirebaseEnabled() && filesBackendUrl) {
+    const loadedFiles: BinaryFileData[] = [];
+    const erroredFiles = new Map<FileId, true>();
+
+    await Promise.all(
+      [...new Set(filesIds)].map(async (id) => {
+        try {
+          // Extract roomId from prefix (e.g., "files/rooms/roomId" -> "rooms/roomId")
+          const roomIdMatch = prefix.match(/rooms\/([^/]+)/);
+          const roomId = roomIdMatch ? roomIdMatch[1] : "default";
+          const url = `${filesBackendUrl}${roomId}/${id}`;
+          const response = await fetch(url);
+          if (response.status < 400) {
+            const arrayBuffer = await response.arrayBuffer();
+
+            const { data, metadata } = await decompressData<BinaryFileMetadata>(
+              new Uint8Array(arrayBuffer),
+              {
+                decryptionKey,
+              },
+            );
+
+            const dataURL = new TextDecoder().decode(data) as DataURL;
+
+            loadedFiles.push({
+              mimeType: metadata?.mimeType || MIME_TYPES.binary,
+              id,
+              dataURL,
+              created: metadata?.created || Date.now(),
+              lastRetrieved: metadata?.created || Date.now(),
+            });
+          } else {
+            erroredFiles.set(id, true);
+          }
+        } catch (error: any) {
+          erroredFiles.set(id, true);
+        }
+      }),
+    );
+
+    return { loadedFiles, erroredFiles };
+  }
+
+  if (!isFirebaseEnabled()) {
+    return { loadedFiles: [], erroredFiles: new Map<FileId, true>() };
+  }
+
   const loadedFiles: BinaryFileData[] = [];
   const erroredFiles = new Map<FileId, true>();
 

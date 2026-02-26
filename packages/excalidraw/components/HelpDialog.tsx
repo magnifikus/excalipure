@@ -10,7 +10,7 @@ import { t } from "../i18n";
 import { getShortcutKey } from "../shortcut";
 
 import { Dialog } from "./Dialog";
-import { ExternalLinkIcon, GithubIcon, youtubeIcon } from "./icons";
+import { ExternalLinkIcon } from "./icons";
 
 import "./HelpDialog.scss";
 
@@ -36,24 +36,19 @@ const Header = () => (
       <div className="HelpDialog__link-icon">{ExternalLinkIcon}</div>
       {t("helpDialog.blog")}
     </a>
-    <a
+    <div
       className="HelpDialog__btn"
-      href="https://github.com/excalidraw/excalidraw/issues"
-      target="_blank"
-      rel="noopener noreferrer"
+      style={{
+        backgroundColor: "#ffebee",
+        color: "#c62828",
+        border: "1px solid #ef9a9a",
+        padding: "8px 12px",
+        borderRadius: "4px",
+        fontWeight: 500,
+      }}
     >
-      <div className="HelpDialog__link-icon">{GithubIcon}</div>
-      {t("helpDialog.github")}
-    </a>
-    <a
-      className="HelpDialog__btn"
-      href="https://youtube.com/@excalidraw"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      <div className="HelpDialog__link-icon">{youtubeIcon}</div>
-      YouTube
-    </a>
+      Sorry, no support for this hacked version
+    </div>
   </div>
 );
 

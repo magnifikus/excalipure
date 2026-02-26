@@ -5,11 +5,21 @@
   </picture>
 </a>
 
+---
+
+> **⚠️ Stripped-Down Fork**
+>
+> This is a one-shot, unmaintained fork of [Excalidraw](https://github.com/excalidraw/excalidraw) with all Excalidraw+ (paid features) and AI/TTD features removed for self-hosted isolated deployment.
+>
+> This is not maintained. Don't expect updates. Use at your own risk.
+>
+> Credit to the original authors: [Excalidraw on GitHub](https://github.com/excalidraw/excalidraw)
+
+---
+
 <h4 align="center">
   <a href="https://excalidraw.com">Excalidraw Editor</a> |
-  <a href="https://plus.excalidraw.com/blog">Blog</a> |
-  <a href="https://docs.excalidraw.com">Documentation</a> |
-  <a href="https://plus.excalidraw.com">Excalidraw+</a>
+  <a href="https://docs.excalidraw.com">Documentation</a>
 </h4>
 
 <div align="center">

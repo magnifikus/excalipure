@@ -1,20 +1,48 @@
-FROM --platform=${BUILDPLATFORM} node:18 AS build
+FROM node:25-alpine AS builder
 
-WORKDIR /opt/node_app
+# Build frontend
+WORKDIR /opt/excalidraw
+COPY package.json yarn.lock tsconfig.json .eslintignore .eslintrc.json .env.production .lintstagedrc.js vercel.json vitest.config.mts ./
+COPY packages ./packages
+COPY scripts ./scripts
+COPY public ./public
+COPY excalidraw-app ./excalidraw-app
+RUN yarn install --frozen-lockfile
+RUN yarn build:app:docker
 
-COPY . .
+# Final stage - all-in-one container
+FROM node:25-alpine
 
-# do not ignore optional dependencies:
-# Error: Cannot find module @rollup/rollup-linux-x64-gnu
-RUN --mount=type=cache,target=/root/.cache/yarn \
-    npm_config_target_arch=${TARGETARCH} yarn --network-timeout 600000
+# Install nginx for web serving
+RUN apk add --no-cache nginx
 
-ARG NODE_ENV=production
+# Create directories
+RUN mkdir -p /app/data /app/files /etc/nginx/conf.d /app/backend /app/backend_colab
 
-RUN npm_config_target_arch=${TARGETARCH} yarn build:app:docker
+# Copy frontend build
+COPY --from=builder /opt/excalidraw/excalidraw-app/build /usr/share/nginx/html
 
-FROM --platform=${TARGETPLATFORM} nginx:1.27-alpine
+# Copy nginx config
+COPY excalidraw-app/nginx.conf /etc/nginx/nginx.conf
 
-COPY --from=build /opt/node_app/excalidraw-app/build /usr/share/nginx/html
+# Copy backends (source only, will run with ts-node)
+COPY backend/package.json backend/yarn.lock backend/tsconfig.json /app/backend/
+COPY backend/src /app/backend/src
+COPY backend_colab/package.json backend_colab/yarn.lock backend_colab/tsconfig.json /app/backend_colab/
+COPY backend_colab/src /app/backend_colab/src
 
-HEALTHCHECK CMD wget -q -O /dev/null http://localhost || exit 1
+# Install backend dependencies
+WORKDIR /app/backend
+RUN yarn install --frozen-lockfile
+
+WORKDIR /app/backend_colab
+RUN yarn install --frozen-lockfile
+
+# Copy startup script
+COPY docker/start.sh /start.sh
+RUN chmod +x /start.sh
+
+# Expose port 80 (nginx)
+EXPOSE 80
+
+CMD ["/start.sh"]
